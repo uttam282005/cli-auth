@@ -1,0 +1,19 @@
+# Binaries and build artifacts
+bin/
+cli
+*.exe
+*.test
+
+# Local persistence
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# Environment configuration
+.env
+
+# IDE / OS files
+.DS_Store
+.idea/
+.vscode/

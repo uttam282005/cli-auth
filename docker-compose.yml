@@ -1,0 +1,17 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    stdin_open: true
+    tty: true
+    volumes:
+      - app-data:/data
+    environment:
+      - DB_PATH=${DB_PATH:-/data/app.db}
+      - SESSION_TIMEOUT_MINUTES=${SESSION_TIMEOUT_MINUTES:-30}
+      - LOCKOUT_THRESHOLD=${LOCKOUT_THRESHOLD:-5}
+      - LOCKOUT_DURATION_MINUTES=${LOCKOUT_DURATION_MINUTES:-15}
+
+volumes:
+  app-data:
