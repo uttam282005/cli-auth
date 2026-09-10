@@ -1,6 +1,6 @@
 # Binaries and build artifacts
 bin/
-cli
+/cli
 *.exe
 *.test
 

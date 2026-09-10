@@ -29,6 +29,11 @@ WORKDIR /home/appuser
 
 COPY --from=builder /bin/cli /bin/cli
 
+ENV DB_PATH=/data/app.db \
+    SESSION_TIMEOUT_MINUTES=30 \
+    LOCKOUT_THRESHOLD=5 \
+    LOCKOUT_DURATION_MINUTES=15
+
 VOLUME ["/data"]
 
 ENTRYPOINT ["/bin/cli"]
