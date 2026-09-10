@@ -193,7 +193,7 @@ osto › login
 - **Persistence**: In Docker Compose, the database resides at `/data/app.db` backed by the named volume `app-data`. Destroying or rebuilding the container retains all registered users.
 
 ### 2. In-Memory Session Management
-- **Deliberate Simplification**: Per specification §3 & §10, sessions are maintained in-memory using a thread-safe map protected by `sync.RWMutex`.
+- **Deliberate Simplification**: Sessions are maintained in-memory using a thread-safe map protected by `sync.RWMutex`.
 - **Stateless CLI Restarts**: Because this is an interactive CLI session, active sessions naturally terminate when the process exits. Persisting sessions across container restarts is unnecessary and contrary to CLI session semantics.
 - **Passive Expiration**: Sessions are checked against `SESSION_TIMEOUT_MINUTES` prior to every post-login command execution. Expired sessions are automatically deleted and force the user to re-authenticate.
 
