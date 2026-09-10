@@ -2,6 +2,8 @@
 
 A secure, idiomatic, containerized command-line authentication system written in Go. Features user registration, bcrypt password hashing, optional TOTP-based two-factor authentication (Google Authenticator compatible) with terminal QR code display, account lockout protection, in-memory session management, and persistent SQLite storage.
 
+> 📖 **Architecture & Deep Dive**: See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for sequence diagrams, security threat modeling, and design trade-off rationales.
+
 ---
 
 ## Features
@@ -60,100 +62,105 @@ The application is configured through environment variables (defined in `.env` o
 ## Usage Walkthrough
 
 ### 1. Register a New Account
-At the `> ` prompt:
+At the `osto › ` prompt:
 ```text
-> register
-Enter username: alice
-Enter password: [masked]
-Confirm password: [masked]
-User registered successfully. You may now log in.
+osto › register
+? Enter username: alice
+? Enter password: [masked]
+? Confirm password: [masked]
+✔  User registered successfully. You may now log in.
 ```
 *Validation: Usernames must be 3–32 alphanumeric characters (letters, numbers, hyphens, underscores). Passwords must be at least 8 characters long.*
 
 ### 2. Log In
 ```text
-> login
-Enter username: alice
-Enter password: [masked]
+osto › login
+? Enter username: alice
+? Enter password: [masked]
 
-Welcome, alice
-Registered:        2026-09-10 17:07:57 UTC
-MFA:               disabled
-Session expires:   2026-09-10 17:37:57 UTC
-Last login:        first login
+╭── Session Profile ───────────────────────────────────────╮
+│  User              alice                                 │
+│  Registered        2026-09-10 19:41:51 UTC               │
+│  2FA Security      ○ disabled                            │
+│  Session Expiry    20:11:51 UTC (30m0s remaining)        │
+│  Last Login        first login                           │
+╰──────────────────────────────────────────────────────────╯
 ```
 Upon login, the prompt updates to reflect the active user:
 ```text
-alice> 
+alice @ osto › 
 ```
 
 ### 3. Check Status (`whoami`)
 ```text
-alice> whoami
+alice @ osto › whoami
 
-Welcome, alice
-Registered:        2026-09-10 17:07:57 UTC
-MFA:               disabled
-Session expires:   2026-09-10 17:37:57 UTC
-Last login:        2026-09-10 17:07:57 UTC
+╭── Session Profile ───────────────────────────────────────╮
+│  User              alice                                 │
+│  Registered        2026-09-10 19:41:51 UTC               │
+│  2FA Security      ○ disabled                            │
+│  Session Expiry    20:11:51 UTC (29m50s remaining)       │
+│  Last Login        2026-09-10 19:41:51 UTC               │
+╰──────────────────────────────────────────────────────────╯
 ```
 
 ### 4. Enable Two-Factor Authentication (`enable-2fa`)
 ```text
-alice> enable-2fa
+alice @ osto › enable-2fa
 
---- Two-Factor Authentication Setup ---
+╭── Two-Factor Authentication Setup ─────────────────────────────╮
+│  Scan this QR code with Google Authenticator or compatible app:│
+╰────────────────────────────────────────────────────────────────╯
+[Unicode QR Code displayed here]
 
-Scan the QR code below with Google Authenticator or compatible app:
-[ASCII QR Code displayed here]
+Manual Entry Details:
+  Secret Key: JBSWY3DPEHPK3PXP
+  URI:        otpauth://totp/OstoAuth:alice?issuer=OstoAuth&secret=JBSWY3DPEHPK3PXP
 
-Manual entry key:
-  Secret: JBSWY3DPEHPK3PXP
-  URI:    otpauth://totp/OstoAuth:alice?issuer=OstoAuth&secret=JBSWY3DPEHPK3PXP
-
-Enter the 6-digit code from your authenticator app to confirm: 123456
-
-Success: 2FA has been successfully enabled for your account.
+? Enter 6-digit code from authenticator: 123456
+✔  Two-factor authentication has been successfully enabled.
 ```
 *Notice: 2FA is not persisted until a valid code is verified, preventing users from being locked out due to misconfiguration.*
 
 ### 5. Log Out & Log In with 2FA
 ```text
-alice> logout
-Logged out successfully.
+alice @ osto › logout
+✔  Logged out successfully.
 
-> login
-Enter username: alice
-Enter password: [masked]
-Enter 6-digit 2FA code: 123456
+osto › login
+? Enter username: alice
+? Enter password: [masked]
+? Enter 6-digit 2FA code: 123456
 
-Welcome, alice
-Registered:        2026-09-10 17:07:57 UTC
-MFA:               enabled
-Session expires:   2026-09-10 17:42:15 UTC
-Last login:        2026-09-10 17:07:57 UTC
+╭── Session Profile ───────────────────────────────────────╮
+│  User              alice                                 │
+│  Registered        2026-09-10 19:41:51 UTC               │
+│  2FA Security      ● enabled (TOTP)                      │
+│  Session Expiry    20:15:00 UTC (30m0s remaining)        │
+│  Last Login        2026-09-10 19:41:51 UTC               │
+╰──────────────────────────────────────────────────────────╯
 ```
 
 ### 6. Disable 2FA (`disable-2fa`)
 To ensure sessions cannot casually toggle off security protections, disabling 2FA requires password confirmation:
 ```text
-alice> disable-2fa
-Enter your current password to confirm disabling 2FA: [masked]
-Success: 2FA has been disabled for your account.
+alice @ osto › disable-2fa
+? Enter current password to confirm disabling 2FA: [masked]
+✔  Two-factor authentication has been disabled.
 ```
 
 ### 7. Account Lockout Demonstration
 If 5 consecutive incorrect passwords or invalid TOTP codes are entered:
 ```text
-> login
-Enter username: alice
-Enter password: [masked]
-Error: account has been locked for 15m0s due to 5 consecutive failed attempts
+osto › login
+? Enter username: alice
+? Enter password: [masked]
+✖  Error: account has been locked for 15m0s due to 5 consecutive failed attempts
 
-> login
-Enter username: alice
-Enter password: [masked]
-Error: account is locked due to multiple failed login attempts. Please try again in 14m58s
+osto › login
+? Enter username: alice
+? Enter password: [masked]
+✖  Error: account is locked due to multiple failed login attempts. Please try again in 14m58s
 ```
 *Notice: Subsequent attempts during the lockout duration fail fast without evaluating credentials or exposing username existence.*
 

@@ -14,6 +14,7 @@ import (
 	"golang.org/x/term"
 
 	"osto-cli-auth/internal/auth"
+	"osto-cli-auth/internal/cli/ui"
 	"osto-cli-auth/internal/config"
 	"osto-cli-auth/internal/session"
 	"osto-cli-auth/internal/store"
@@ -72,9 +73,9 @@ func (r *REPL) IsAuthenticated() bool {
 
 func (r *REPL) getPrompt() string {
 	if r.IsAuthenticated() {
-		return fmt.Sprintf("%s> ", r.currentUser.Username)
+		return ui.PromptPrefix(r.out, r.currentUser.Username)
 	}
-	return "> "
+	return ui.PromptPrefix(r.out, "")
 }
 
 // dynamicCompleter provides tab completion depending on authentication state.
@@ -123,7 +124,7 @@ func (r *REPL) Run() error {
 	defer rl.Close()
 	r.rl = rl
 
-	r.println("Welcome to the CLI Login System. Type 'help' for available commands.")
+	r.print(ui.WelcomeBanner(r.out))
 
 	for {
 		rl.SetPrompt(r.getPrompt())
@@ -152,7 +153,7 @@ func (r *REPL) Run() error {
 			if err == errExit {
 				return nil
 			}
-			r.printf("Error: %v\n", err)
+			r.println(ui.Error(r.out, err))
 		}
 	}
 }
@@ -165,7 +166,7 @@ func (r *REPL) dispatch(cmd string, args []string) error {
 	// If authenticated, check session validity before executing any command
 	if r.currentSession != nil {
 		if !r.IsAuthenticated() {
-			r.println("\nSession expired. Please log in again.")
+			r.println(ui.Warn(r.out, "Session expired. Please log in again."))
 			r.rl.SetPrompt(r.getPrompt())
 			return nil
 		}
@@ -188,7 +189,7 @@ func (r *REPL) dispatch(cmd string, args []string) error {
 			r.handleLogout(ctx)
 			return errExit
 		default:
-			r.printf("Unknown command '%s'. Type 'help' to see available commands.\n", cmd)
+			r.println(ui.Error(r.out, fmt.Sprintf("Unknown command '%s'. Type 'help' to see available commands.", cmd)))
 			return nil
 		}
 	}
@@ -204,7 +205,7 @@ func (r *REPL) dispatch(cmd string, args []string) error {
 	case "exit":
 		return errExit
 	default:
-		r.printf("Unknown command '%s'. Type 'help' to see available commands.\n", cmd)
+		r.println(ui.Error(r.out, fmt.Sprintf("Unknown command '%s'. Type 'help' to see available commands.", cmd)))
 		return nil
 	}
 }
@@ -246,6 +247,14 @@ func (r *REPL) readPassword(prompt string) (string, error) {
 	return r.readPrompt(prompt)
 }
 
+func (r *REPL) print(a ...any) {
+	if r.out != nil {
+		fmt.Fprint(r.out, a...)
+		return
+	}
+	fmt.Print(a...)
+}
+
 func (r *REPL) println(a ...any) {
 	if r.out != nil {
 		fmt.Fprintln(r.out, a...)
@@ -282,28 +291,12 @@ func RenderUserDetails(out io.Writer, u *store.User, sess *session.Session) {
 	if out == nil {
 		out = os.Stdout
 	}
-	mfaStatus := "disabled"
-	if u.TOTPEnabled {
-		mfaStatus = "enabled"
-	}
-
-	lastLoginStr := "first login"
-	if u.LastLoginAt != nil {
-		lastLoginStr = u.LastLoginAt.UTC().Format("2006-01-02 15:04:05 UTC")
-	}
-
-	sessionExpiryStr := "N/A"
+	var expiresAt *time.Time
 	if sess != nil {
-		sessionExpiryStr = sess.ExpiresAt.UTC().Format("2006-01-02 15:04:05 UTC")
+		expiresAt = &sess.ExpiresAt
 	}
-
-	fmt.Fprintln(out)
-	fmt.Fprintf(out, "Welcome, %s\n", u.Username)
-	fmt.Fprintf(out, "Registered:        %s\n", u.CreatedAt.UTC().Format("2006-01-02 15:04:05 UTC"))
-	fmt.Fprintf(out, "MFA:               %s\n", mfaStatus)
-	fmt.Fprintf(out, "Session expires:   %s\n", sessionExpiryStr)
-	fmt.Fprintf(out, "Last login:        %s\n", lastLoginStr)
-	fmt.Fprintln(out)
+	card := ui.RenderProfileCard(out, u.Username, u.CreatedAt, u.TOTPEnabled, expiresAt, u.LastLoginAt)
+	fmt.Fprint(out, card)
 }
 
 func validateUsername(username string) error {

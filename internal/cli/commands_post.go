@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"osto-cli-auth/internal/auth"
+	"osto-cli-auth/internal/cli/ui"
 )
 
 func (r *REPL) handleWhoami(ctx context.Context) error {
@@ -46,18 +47,17 @@ func (r *REPL) handleEnable2FA(ctx context.Context) error {
 	secret := key.Secret()
 	uri := key.URL()
 
-	r.println("\n--- Two-Factor Authentication Setup ---")
+	r.print(ui.Render2FAHeader(r.out))
 	qrStr, err := auth.GenerateTerminalQR(uri)
 	if err == nil && qrStr != "" {
-		r.println("\nScan the QR code below with Google Authenticator or compatible app:")
 		r.println(qrStr)
 	}
 
-	r.println("Manual entry key:")
-	r.printf("  Secret: %s\n", secret)
-	r.printf("  URI:    %s\n\n", uri)
+	r.println(ui.Bold(r.out, "Manual Entry Details:"))
+	r.printf("  %s %s\n", ui.Dim(r.out, "Secret Key:"), ui.BrightCyan(r.out, secret))
+	r.printf("  %s %s\n\n", ui.Dim(r.out, "URI:       "), ui.Dim(r.out, uri))
 
-	passcode, err := r.readPrompt("Enter the 6-digit code from your authenticator app to confirm: ")
+	passcode, err := r.readPrompt(ui.InputPrompt(r.out, "Enter 6-digit code from authenticator:"))
 	if err != nil {
 		return err
 	}
@@ -74,7 +74,7 @@ func (r *REPL) handleEnable2FA(ctx context.Context) error {
 	r.currentUser.TOTPEnabled = true
 	r.currentUser.TOTPSecret = &secret
 
-	r.println("\nSuccess: 2FA has been successfully enabled for your account.")
+	r.println(ui.Success(r.out, "Two-factor authentication has been successfully enabled."))
 	return nil
 }
 
@@ -90,7 +90,7 @@ func (r *REPL) handleDisable2FA(ctx context.Context) error {
 	}
 
 	// Security requirement: Re-verify current password before disabling 2FA
-	password, err := r.readPassword("Enter your current password to confirm disabling 2FA: ")
+	password, err := r.readPassword(ui.InputPrompt(r.out, "Enter current password to confirm disabling 2FA:"))
 	if err != nil {
 		return err
 	}
@@ -106,7 +106,7 @@ func (r *REPL) handleDisable2FA(ctx context.Context) error {
 	r.currentUser.TOTPEnabled = false
 	r.currentUser.TOTPSecret = nil
 
-	r.println("Success: 2FA has been disabled for your account.")
+	r.println(ui.Success(r.out, "Two-factor authentication has been disabled."))
 	return nil
 }
 
@@ -117,16 +117,19 @@ func (r *REPL) handleLogout(ctx context.Context) error {
 	}
 	r.currentUser = nil
 
-	r.println("Logged out successfully.")
+	r.println(ui.Success(r.out, "Logged out successfully."))
 	return nil
 }
 
 func (r *REPL) handlePostLoginHelp() error {
-	r.println("\nAvailable commands:")
-	r.println("  whoami       - Display current user profile and session status")
-	r.println("  enable-2fa   - Enable TOTP-based two-factor authentication")
-	r.println("  disable-2fa  - Disable two-factor authentication")
-	r.println("  logout       - End your active session")
-	r.println("  help         - Show available commands")
+	items := [][2]string{
+		{"whoami", "Display current user profile and session status"},
+		{"enable-2fa", "Setup TOTP two-factor authentication with QR code"},
+		{"disable-2fa", "Disable two-factor authentication"},
+		{"logout", "End your active session"},
+		{"help", "Display available commands"},
+		{"exit", "Log out and exit the application"},
+	}
+	r.print(ui.RenderHelp(r.out, "Session Commands:", items))
 	return nil
 }

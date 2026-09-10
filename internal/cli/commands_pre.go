@@ -8,11 +8,12 @@ import (
 	"time"
 
 	"osto-cli-auth/internal/auth"
+	"osto-cli-auth/internal/cli/ui"
 	"osto-cli-auth/internal/store"
 )
 
 func (r *REPL) handleRegister(ctx context.Context) error {
-	username, err := r.readPrompt("Enter username: ")
+	username, err := r.readPrompt(ui.InputPrompt(r.out, "Enter username:"))
 	if err != nil {
 		return err
 	}
@@ -21,7 +22,7 @@ func (r *REPL) handleRegister(ctx context.Context) error {
 		return err
 	}
 
-	password, err := r.readPassword("Enter password: ")
+	password, err := r.readPassword(ui.InputPrompt(r.out, "Enter password:"))
 	if err != nil {
 		return err
 	}
@@ -29,7 +30,7 @@ func (r *REPL) handleRegister(ctx context.Context) error {
 		return err
 	}
 
-	confirmPassword, err := r.readPassword("Confirm password: ")
+	confirmPassword, err := r.readPassword(ui.InputPrompt(r.out, "Confirm password:"))
 	if err != nil {
 		return err
 	}
@@ -50,7 +51,7 @@ func (r *REPL) handleRegister(ctx context.Context) error {
 		return fmt.Errorf("registration failed: %w", err)
 	}
 
-	r.println("User registered successfully. You may now log in.")
+	r.println(ui.Success(r.out, "User registered successfully. You may now log in."))
 	return nil
 }
 
@@ -62,7 +63,7 @@ func (r *REPL) handleLogin(ctx context.Context) error {
 		return fmt.Errorf("account is locked due to multiple failed login attempts. Please try again in %v", remaining)
 	}
 
-	username, err := r.readPrompt("Enter username: ")
+	username, err := r.readPrompt(ui.InputPrompt(r.out, "Enter username:"))
 	if err != nil {
 		return err
 	}
@@ -75,7 +76,7 @@ func (r *REPL) handleLogin(ctx context.Context) error {
 		return errors.New("username cannot be empty")
 	}
 
-	password, err := r.readPassword("Enter password: ")
+	password, err := r.readPassword(ui.InputPrompt(r.out, "Enter password:"))
 	if err != nil {
 		return err
 	}
@@ -123,7 +124,7 @@ func (r *REPL) handleLogin(ctx context.Context) error {
 			return errors.New("2FA is marked as enabled but secret is missing; please contact support")
 		}
 
-		passcode, err := r.readPrompt("Enter 6-digit 2FA code: ")
+		passcode, err := r.readPrompt(ui.InputPrompt(r.out, "Enter 6-digit 2FA code:"))
 		if err != nil {
 			return err
 		}
@@ -171,10 +172,12 @@ func (r *REPL) handleLogin(ctx context.Context) error {
 }
 
 func (r *REPL) handlePreLoginHelp() error {
-	r.println("\nAvailable commands:")
-	r.println("  register  - Create a new user account")
-	r.println("  login     - Log into an existing account")
-	r.println("  help      - Show available commands")
-	r.println("  exit      - Exit the application")
+	items := [][2]string{
+		{"register", "Create a new user account"},
+		{"login", "Authenticate with username and password (+ 2FA)"},
+		{"help", "Display available commands"},
+		{"exit", "Exit the application"},
+	}
+	r.print(ui.RenderHelp(r.out, "Authentication Commands:", items))
 	return nil
 }
